@@ -29,6 +29,9 @@ class RowChecker:
         ".fq.gz",
         ".fastq.gz",
     )
+    BAM_VALID_FORMATS = (
+        ".bam"
+    )
 
     def __init__(
         self,
@@ -36,6 +39,7 @@ class RowChecker:
         first_col="fastq_1",
         second_col="fastq_2",
         single_col="single_end",
+        bam_col="bam",
         **kwargs,
     ):
         """
@@ -58,6 +62,7 @@ class RowChecker:
         self._first_col = first_col
         self._second_col = second_col
         self._single_col = single_col
+        self._bam_col = bam_col
         self._seen = set()
         self.modified = []
 
@@ -83,10 +88,15 @@ class RowChecker:
         # Sanitize samples slightly.
         row[self._sample_col] = row[self._sample_col].replace(" ", "_")
 
+    # this actually validates either the first_col or bam_col depending on what
+    # exists. That both don't exist for a given row is checked in the subworkflow
     def _validate_first(self, row):
         """Assert that the first FASTQ entry is non-empty and has the right format."""
-        assert len(row[self._first_col]) > 0, "At least the first FASTQ file is required."
-        self._validate_fastq_format(row[self._first_col])
+        assert len(row[self._first_col]) > 0 or len(row[self._bam_col]) > 0, "At least the first FASTQ or a bam file is required."
+        if len(row[self._first_col]) > 0:
+            self._validate_fastq_format(row[self._first_col])
+        else:
+            self._validate_bam_format(row[self._bam_col])
 
     def _validate_second(self, row):
         """Assert that the second FASTQ entry has the right format if it exists."""
@@ -108,6 +118,13 @@ class RowChecker:
         assert any(filename.endswith(extension) for extension in self.VALID_FORMATS), (
             f"The FASTQ file has an unrecognized extension: {filename}\n"
             f"It should be one of: {', '.join(self.VALID_FORMATS)}"
+        )
+
+    def _validate_bam_format(self, filename):
+        """Assert that a given filename has one of the expected BAM extensions."""
+        assert any(filename.endswith(extension) for extension in self.BAM_VALID_FORMATS), (
+            f"The BAM file has an unrecognized extension: {filename}\n"
+            f"It should be one of: {', '.join(self.BAM_VALID_FORMATS)}"
         )
 
     def validate_unique_samples(self):

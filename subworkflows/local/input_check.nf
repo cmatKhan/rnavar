@@ -9,38 +9,64 @@ workflow INPUT_CHECK {
     samplesheet // file: /path/to/samplesheet.csv
 
     main:
+
+    ch_reads = Channel.empty()
+
     SAMPLESHEET_CHECK (
         samplesheet
     )
     .csv
     .splitCsv ( header:true, sep:',' )
-    .map { create_fastq_channel(it) }
-    .set { reads }
+    .multiMap{ it ->
+        def parsed_row = create_input_channel(it)
+        reads: parsed_row.fastq
+        bams: parsed_row.bam
+    }
+    .set { ch_parsed_input }
 
     emit:
-    reads                                     // channel: [ val(meta), [ reads ] ]
+    reads = ch_parsed_input.reads             // channel: [ val(meta), [ reads ] ]
+    bams = ch_parsed_input.bams               // channel: [ val(meta), file(bam), file(bai) ]
     versions = SAMPLESHEET_CHECK.out.versions // channel: [ versions.yml ]
 }
 
 // Function to get list of [ meta, [ fastq_1, fastq_2 ] ]
-def create_fastq_channel(LinkedHashMap row) {
+def create_input_channel(LinkedHashMap row) {
+    // create output map
+    def output_map = [:]
+    output_map.bam = []
+    output_map.fastq = []
     // create meta map
     def meta = [:]
     meta.id         = row.sample
     meta.single_end = row.single_end.toBoolean()
 
-    // add path(s) of the fastq file(s) to the meta map
-    def fastq_meta = []
-    if (!file(row.fastq_1).exists()) {
-        exit 1, "ERROR: Please check input samplesheet -> Read 1 FastQ file does not exist!\n${row.fastq_1}"
-    }
-    if (meta.single_end) {
-        fastq_meta = [ meta, [ file(row.fastq_1) ] ]
-    } else {
-        if (!file(row.fastq_2).exists()) {
-            exit 1, "ERROR: Please check input samplesheet -> Read 2 FastQ file does not exist!\n${row.fastq_2}"
+    // check some assumptions on the samplesheet, namely that each row must have
+    // at minimum a valid fastq_1 OR valid bam, but not both
+    if(row.fastq_1 == ''){
+        if(!file(row.bam).exists()){
+            exit 1, "ERROR: Please check input samplesheet -> fastq_1 is blank and bam file does not exist:\n${row.bam}"
+        } else {
+            if (!file(row.bam+'.bai').exists()){
+                exit 1, "ERROR: Please check input samplesheet -> bam must have a .bai index file in same dir. One does not exist:\n${row.bam+'.bai'}"
+            } else {
+                meta.single_end = ''
+                output_map.bam = [ meta, file(row.bam), file(row.bam+'.bai') ]
+            }
         }
-        fastq_meta = [ meta, [ file(row.fastq_1), file(row.fastq_2) ] ]
+    } else if(row.bam == ''){
+        if(!file(row.fastq_1).exists()){
+            exit 1, "ERROR: Please check input samplesheet -> bam is blank and Read 1 does not exist:\n ${row.bam}"
+        } else if (meta.single_end){
+                output_map.fastq = [ meta, [ file(row.fastq_1) ] ]
+        } else {
+            if(file(row.fastq_2).exists()){
+                output_map.fastq = [ meta, [ file(row.fastq_1), file(row.fastq_2) ] ]
+            } else {
+                exit 1, "ERROR: Please check input samplesheet -> single_end is set to false but Read 2 does not exist:\n${row.fastq_1}"
+            }
+        }
     }
-    return fastq_meta
+
+    return output_map
 }
