@@ -20,13 +20,13 @@ workflow INPUT_CHECK {
     .multiMap{ it ->
         def parsed_row = create_input_channel(it)
         reads: parsed_row.fastq
-        bams: parsed_row.bam
+        bam_bai: parsed_row.bam_bai
     }
     .set { ch_parsed_input }
 
     emit:
     reads = ch_parsed_input.reads             // channel: [ val(meta), [ reads ] ]
-    bams = ch_parsed_input.bams               // channel: [ val(meta), file(bam), file(bai) ]
+    bam_bai = ch_parsed_input.bam_bai         // channel: [ val(meta), file(bam), file(bai) ]
     versions = SAMPLESHEET_CHECK.out.versions // channel: [ versions.yml ]
 }
 
@@ -34,12 +34,14 @@ workflow INPUT_CHECK {
 def create_input_channel(LinkedHashMap row) {
     // create output map
     def output_map = [:]
-    output_map.bam = []
-    output_map.fastq = []
     // create meta map
     def meta = [:]
     meta.id         = row.sample
     meta.single_end = row.single_end.toBoolean()
+    // create fastq and bam_bai-- this is for the case in which there are
+    // bams, but no fastqs
+    output_map.bam_bai = [meta, null, null]
+    output_map.fastq = [meta,[]]
 
     // check some assumptions on the samplesheet, namely that each row must have
     // at minimum a valid fastq_1 OR valid bam, but not both
@@ -51,7 +53,7 @@ def create_input_channel(LinkedHashMap row) {
                 exit 1, "ERROR: Please check input samplesheet -> bam must have a .bai index file in same dir. One does not exist:\n${row.bam+'.bai'}"
             } else {
                 meta.single_end = ''
-                output_map.bam = [ meta, file(row.bam), file(row.bam+'.bai') ]
+                output_map.bam_bai = [ meta, file(row.bam), file(row.bam+'.bai') ]
             }
         }
     } else if(row.bam == ''){
