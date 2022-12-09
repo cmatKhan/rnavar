@@ -2,16 +2,16 @@
 // Uncompress and prepare reference genome files
 //
 
-include { GATK4_CREATESEQUENCEDICTIONARY }    from '../../modules/nf-core/modules/gatk4/createsequencedictionary/main' //addParams(options: params.genome_options)
-include { GFFREAD }                           from '../../modules/nf-core/modules/gffread/main'                        //addParams(options: params.gffread_options)
+include { GATK4_CREATESEQUENCEDICTIONARY }    from '../../modules/nf-core/gatk4/createsequencedictionary/main.nf' //addParams(options: params.genome_options)
+include { GFFREAD }                           from '../../modules/nf-core/gffread/main'                        //addParams(options: params.gffread_options)
 include { GTF2BED }                           from '../../modules/local/gtf2bed'                                       //addParams(options: params.genome_options)
-include { GUNZIP as GUNZIP_FASTA }            from '../../modules/nf-core/modules/gunzip/main'                         //addParams(options: params.genome_options)
-include { GUNZIP as GUNZIP_GENE_BED }         from '../../modules/nf-core/modules/gunzip/main'                         //addParams(options: params.genome_options)
-include { GUNZIP as GUNZIP_GFF }              from '../../modules/nf-core/modules/gunzip/main'                         //addParams(options: params.genome_options)
-include { GUNZIP as GUNZIP_GTF }              from '../../modules/nf-core/modules/gunzip/main'                         //addParams(options: params.genome_options)
-include { SAMTOOLS_FAIDX }                    from '../../modules/nf-core/modules/samtools/faidx/main'                 //addParams(options: params.genome_options)
-include { STAR_GENOMEGENERATE }               from '../../modules/nf-core/modules/star/genomegenerate/main'            //addParams(options: params.star_index_options)
-include { UNTAR as UNTAR_STAR_INDEX }         from '../../modules/nf-core/modules/untar/main'                          //addParams(options: params.star_untar_options)
+include { GUNZIP as GUNZIP_FASTA }            from '../../modules/nf-core/gunzip/main'                         //addParams(options: params.genome_options)
+include { GUNZIP as GUNZIP_GENE_BED }         from '../../modules/nf-core/gunzip/main'                         //addParams(options: params.genome_options)
+include { GUNZIP as GUNZIP_GFF }              from '../../modules/nf-core/gunzip/main'                         //addParams(options: params.genome_options)
+include { GUNZIP as GUNZIP_GTF }              from '../../modules/nf-core/gunzip/main'                         //addParams(options: params.genome_options)
+include { SAMTOOLS_FAIDX }                    from '../../modules/nf-core/samtools/faidx/main'                 //addParams(options: params.genome_options)
+include { STAR_GENOMEGENERATE }               from '../../modules/nf-core/star/genomegenerate/main'            //addParams(options: params.star_index_options)
+include { UNTAR as UNTAR_STAR_INDEX }         from '../../modules/nf-core/untar/main'                          //addParams(options: params.star_untar_options)
 
 
 workflow PREPARE_GENOME {

@@ -277,6 +277,11 @@
             "default": "",
             "fa_icon": "fas fa-toolbox",
             "properties": {
+                "add_update_read_group": {
+                    "type": "boolean",
+                    "description": "Add or replace read groups in bam file. This is especially helpful if the input to the pipeline are bams without read groups. By default, the meta.id is used for all of the fields required by picard AddOrReplaceReadGroups",
+                    "hidden": true
+                },
                 "annotate_tools": {
                     "type": "string",
                     "fa_icon": "fas fa-hammer",
@@ -635,5 +640,11 @@
         {
             "$ref": "#/definitions/generic_options"
         }
-    ]
+    ],
+    "properties": {
+        "platform": {
+            "type": "string",
+            "default": "illumina"
+        }
+    }
 }

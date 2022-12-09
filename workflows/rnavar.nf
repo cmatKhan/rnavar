@@ -57,19 +57,20 @@ include { ANNOTATE                      } from '../subworkflows/local/annotate' 
 ========================================================================================
 */
 
-include { FASTQC                        } from '../modules/nf-core/modules/fastqc/main'
-include { MULTIQC                       } from '../modules/nf-core/modules/multiqc/main'
-include { CAT_FASTQ                     } from '../modules/nf-core/modules/cat/fastq/main'
-include { GATK4_BASERECALIBRATOR        } from '../modules/nf-core/modules/gatk4/baserecalibrator/main'
-include { GATK4_BEDTOINTERVALLIST       } from '../modules/nf-core/modules/gatk4/bedtointervallist/main'
-include { GATK4_INTERVALLISTTOOLS       } from '../modules/nf-core/modules/gatk4/intervallisttools/main'
-include { GATK4_HAPLOTYPECALLER         } from '../modules/nf-core/modules/gatk4/haplotypecaller/main'
-include { GATK4_MERGEVCFS               } from '../modules/nf-core/modules/gatk4/mergevcfs/main'
-include { GATK4_INDEXFEATUREFILE        } from '../modules/nf-core/modules/gatk4/indexfeaturefile/main'
-include { GATK4_VARIANTFILTRATION       } from '../modules/nf-core/modules/gatk4/variantfiltration/main'
-include { SAMTOOLS_INDEX                } from '../modules/nf-core/modules/samtools/index/main'
-include { TABIX_TABIX as TABIX          } from '../modules/nf-core/modules/tabix/tabix/main'
-include { CUSTOM_DUMPSOFTWAREVERSIONS   } from '../modules/nf-core/modules/custom/dumpsoftwareversions/main'
+include { FASTQC                        } from '../modules/nf-core/fastqc/main'
+include { MULTIQC                       } from '../modules/nf-core/multiqc/main'
+include { CAT_FASTQ                     } from '../modules/nf-core/cat/fastq/main'
+include { PICARD_ADDORREPLACEREADGROUPS } from '../modules/nf-core/picard/addorreplacereadgroups/main.nf'
+include { GATK4_BASERECALIBRATOR        } from '../modules/nf-core/gatk4/baserecalibrator/main'
+include { GATK4_BEDTOINTERVALLIST       } from '../modules/nf-core/gatk4/bedtointervallist/main'
+include { GATK4_INTERVALLISTTOOLS       } from '../modules/nf-core/gatk4/intervallisttools/main'
+include { GATK4_HAPLOTYPECALLER         } from '../modules/nf-core/gatk4/haplotypecaller/main'
+include { GATK4_MERGEVCFS               } from '../modules/nf-core/gatk4/mergevcfs/main'
+include { GATK4_INDEXFEATUREFILE        } from '../modules/nf-core/gatk4/indexfeaturefile/main'
+include { GATK4_VARIANTFILTRATION       } from '../modules/nf-core/gatk4/variantfiltration/main'
+include { SAMTOOLS_INDEX                } from '../modules/nf-core/samtools/index/main'
+include { TABIX_TABIX as TABIX          } from '../modules/nf-core/tabix/tabix/main'
+include { CUSTOM_DUMPSOFTWAREVERSIONS   } from '../modules/nf-core/custom/dumpsoftwareversions/main'
 
 /*
 ========================================================================================
@@ -255,6 +256,22 @@ workflow RNAVAR {
         ch_reports           = ch_reports.mix(ALIGN_STAR.out.stats.collect{it[1]}.ifEmpty([]))
         ch_reports           = ch_reports.mix(ALIGN_STAR.out.log_final.collect{it[1]}.ifEmpty([]))
         ch_versions          = ch_versions.mix(ALIGN_STAR.out.versions.first().ifEmpty(null))
+
+        //
+        // SUBWORKFLOW: Add Read Groups
+        //    optionally add/replace readgroups -- especially useful if input is
+        //    bam and no read groups currently exist
+        //
+        if(params.add_update_read_group){
+            PICARD_ADDORREPLACEREADGROUPS (
+                ch_genome_bam
+            )
+            ch_versions   = ch_versions.mix(PICARD_ADDORREPLACEREADGROUPS.out.versions.first().ifEmpty(null))
+            ch_genome_bam = PICARD_ADDORREPLACEREADGROUPS.out.bam
+
+            ch_genome_bam_index = SAMTOOLS_INDEX(PICARD_ADDORREPLACEREADGROUPS.out.bam).bai
+        }
+
 
         //
         // SUBWORKFLOW: Mark duplicates with GATK4
