@@ -37,7 +37,8 @@ def create_input_channel(LinkedHashMap row) {
     // create meta map
     def meta = [:]
     meta.id         = row.sample
-    meta.single_end = row.single_end.toBoolean()
+    // note: do not set single_end flag here -- instead, set it in the fastq case
+    // below
     // create fastq and bam_bai-- this is for the case in which there are
     // bams, but no fastqs
     output_map.bam_bai = [meta, null, null]
@@ -52,11 +53,14 @@ def create_input_channel(LinkedHashMap row) {
             if (!file(row.bam+'.bai').exists()){
                 exit 1, "ERROR: Please check input samplesheet -> bam must have a .bai index file in same dir. One does not exist:\n${row.bam+'.bai'}"
             } else {
-                meta.single_end = ''
                 output_map.bam_bai = [ meta, file(row.bam), file(row.bam+'.bai') ]
             }
         }
     } else if(row.bam == ''){
+
+        // set single end boolean in fastq case
+        meta.single_end = row.single_end.toBoolean()
+
         if(!file(row.fastq_1).exists()){
             exit 1, "ERROR: Please check input samplesheet -> bam is blank and Read 1 does not exist:\n ${row.bam}"
         } else if (meta.single_end){

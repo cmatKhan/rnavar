@@ -125,9 +125,10 @@ workflow RNAVAR {
     ch_reports  = Channel.empty()
     // To gather used softwares versions for MultiQC
     ch_versions = Channel.empty()
-    // To gather bam from input and alignment step
+    // To gather bam from input
     ch_genome_bam = Channel.empty()
     ch_genome_bam_index = Channel.empty()
+    // instantiate channels needed mid process
     ch_transcriptome_bam = Channel.empty()
 
     //
@@ -264,31 +265,43 @@ workflow RNAVAR {
         //    optionally add/replace readgroups -- especially useful if input is
         //    bam and no read groups currently exist
         //
+        ch_addreplacerg_bam = Channel.empty()
+        ch_addreplacerg_bam_index = Channel.empty()
         if(params.add_update_read_group){
             PICARD_ADDORREPLACEREADGROUPS (
                 ch_genome_bam
             )
             ch_versions   = ch_versions.mix(PICARD_ADDORREPLACEREADGROUPS.out.versions.first().ifEmpty(null))
-            ch_genome_bam = PICARD_ADDORREPLACEREADGROUPS.out.bam
-
-            ch_genome_bam_index = SAMTOOLS_INDEX(PICARD_ADDORREPLACEREADGROUPS.out.bam).bai
+            // mix into the add replace rg channel
+            ch_addreplacerg_bam = ch_addreplacerg_bam.mix(PICARD_ADDORREPLACEREADGROUPS.out.bam)
+            ch_addreplacerg_bam_index = ch_addreplacerg_bam_index.mix(SAMTOOLS_INDEX(ch_addreplacerg_bam).bai)
+        } else {
+            // downstream processes connect to the add replace rg channel -- if
+            // this was not performed, presumably it is not necessary. mix in
+            // the bams
+            ch_addreplacerg_bam = ch_addreplacerg_bam.mix(ch_genome_bam)
+            ch_addreplacerg_bam_index = ch_addreplacerg_bam_index.mix(ch_genome_bam_index)
         }
-
 
         //
         // SUBWORKFLOW: Mark duplicates with GATK4
         //
+        ch_mkdup_bam_bai = Channel.empty()
         if(!params.skip_markduplicates){
             MARKDUPLICATES (
-                ch_genome_bam
+                ch_addreplacerg_bam
             )
-            ch_genome_bam             = MARKDUPLICATES.out.bam_bai
+            ch_mkdup_bam_bai   = ch_mkdup_bam_bai.mix(MARKDUPLICATES.out.bam_bai)
             //Gather QC reports
             ch_reports                = ch_reports.mix(MARKDUPLICATES.out.stats.collect{it[1]}.ifEmpty([]))
             ch_reports                = ch_reports.mix(MARKDUPLICATES.out.metrics.collect{it[1]}.ifEmpty([]))
             ch_versions               = ch_versions.mix(MARKDUPLICATES.out.versions.first().ifEmpty(null))
         } else{
-            ch_genome_bam = ch_genome_bam.join(ch_genome_bam_index)
+            // downstream processes expect markdup bams -- if this is skipped
+            // the assumption is the bams have already had this run -- mix
+            // them into the mkdup channel
+             ch_mkdup_bam_bai = ch_addreplacerg_bam
+                .join(ch_addreplacerg_bam_index)
         }
 
         //
@@ -297,7 +310,7 @@ workflow RNAVAR {
         //
         ch_splitncigar_bam_bai = Channel.empty()
         SPLITNCIGAR (
-            ch_genome_bam,
+            ch_mkdup_bam_bai,
             PREPARE_GENOME.out.fasta,
             PREPARE_GENOME.out.fai,
             PREPARE_GENOME.out.dict,
