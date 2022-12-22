@@ -57,20 +57,22 @@ include { ANNOTATE                      } from '../subworkflows/local/annotate' 
 ========================================================================================
 */
 
-include { FASTQC                        } from '../modules/nf-core/fastqc/main'
-include { MULTIQC                       } from '../modules/nf-core/multiqc/main'
-include { CAT_FASTQ                     } from '../modules/nf-core/cat/fastq/main'
-include { PICARD_ADDORREPLACEREADGROUPS } from '../modules/nf-core/picard/addorreplacereadgroups/main.nf'
-include { GATK4_BASERECALIBRATOR        } from '../modules/nf-core/gatk4/baserecalibrator/main'
-include { GATK4_BEDTOINTERVALLIST       } from '../modules/nf-core/gatk4/bedtointervallist/main'
-include { GATK4_INTERVALLISTTOOLS       } from '../modules/nf-core/gatk4/intervallisttools/main'
-include { GATK4_HAPLOTYPECALLER         } from '../modules/nf-core/gatk4/haplotypecaller/main'
-include { GATK4_MERGEVCFS               } from '../modules/nf-core/gatk4/mergevcfs/main'
-include { GATK4_INDEXFEATUREFILE        } from '../modules/nf-core/gatk4/indexfeaturefile/main'
-include { GATK4_VARIANTFILTRATION       } from '../modules/nf-core/gatk4/variantfiltration/main'
-include { SAMTOOLS_INDEX                } from '../modules/nf-core/samtools/index/main'
-include { TABIX_TABIX as TABIX          } from '../modules/nf-core/tabix/tabix/main'
-include { CUSTOM_DUMPSOFTWAREVERSIONS   } from '../modules/nf-core/custom/dumpsoftwareversions/main'
+include { FASTQC                                              } from '../modules/nf-core/fastqc/main'
+include { MULTIQC                                             } from '../modules/nf-core/multiqc/main'
+include { CAT_FASTQ                                           } from '../modules/nf-core/cat/fastq/main'
+include { PICARD_ADDORREPLACEREADGROUPS                       } from '../modules/nf-core/picard/addorreplacereadgroups/main.nf'
+include { GATK4_BASERECALIBRATOR                              } from '../modules/nf-core/gatk4/baserecalibrator/main'
+include { GATK4_BEDTOINTERVALLIST                             } from '../modules/nf-core/gatk4/bedtointervallist/main'
+include { GATK4_INTERVALLISTTOOLS                             } from '../modules/nf-core/gatk4/intervallisttools/main'
+include { GATK4_HAPLOTYPECALLER                               } from '../modules/nf-core/gatk4/haplotypecaller/main'
+include { GATK4_HAPLOTYPECALLER as GATK4_HAPLOTYPECALLER_GVCF } from '../modules/nf-core/gatk4/haplotypecaller/main'
+include { GATK4_MERGEVCFS                                     } from '../modules/nf-core/gatk4/mergevcfs/main'
+include { GATK4_MERGEVCFS as GATK4_MERGEVCFS_GVCF             } from '../modules/nf-core/gatk4/mergevcfs/main'
+include { GATK4_INDEXFEATUREFILE                              } from '../modules/nf-core/gatk4/indexfeaturefile/main'
+include { GATK4_VARIANTFILTRATION                             } from '../modules/nf-core/gatk4/variantfiltration/main'
+include { SAMTOOLS_INDEX                                      } from '../modules/nf-core/samtools/index/main'
+include { TABIX_TABIX as TABIX                                } from '../modules/nf-core/tabix/tabix/main'
+include { CUSTOM_DUMPSOFTWAREVERSIONS                         } from '../modules/nf-core/custom/dumpsoftwareversions/main'
 
 /*
 ========================================================================================
@@ -394,11 +396,38 @@ workflow RNAVAR {
             ch_dbsnp_tbi
         )
 
+        if (params.gvcf){
+            // this is the same as the individual variant calling, but
+            // the gvcf flag is set by default. The vcfs are merged by sample
+            GATK4_HAPLOTYPECALLER_GVCF(
+                ch_haplotypecaller_interval_bam,
+                PREPARE_GENOME.out.fasta,
+                PREPARE_GENOME.out.fai,
+                PREPARE_GENOME.out.dict,
+                ch_dbsnp,
+                ch_dbsnp_tbi
+            )
+
+            ch_haplotypecaller_gvcf_raw = GATK4_HAPLOTYPECALLER_GVCF.out.vcf
+            .map{ meta, vcf ->
+                meta.id = meta.sample
+                [meta, vcf]}
+            .groupTuple()
+
+            GATK4_MERGEVCFS_GVCF(
+                ch_haplotypecaller_gvcf_raw,
+                PREPARE_GENOME.out.dict
+            )
+            ch_versions  = ch_versions.mix(GATK4_MERGEVCFS_GVCF.out.versions.first().ifEmpty(null))
+        }
+
         ch_haplotypecaller_raw = GATK4_HAPLOTYPECALLER.out.vcf
             .map{ meta, vcf ->
                 meta.id = meta.sample
                 [meta, vcf]}
             .groupTuple()
+
+        ch_haplotypecaller_raw.view()
 
         ch_versions  = ch_versions.mix(GATK4_HAPLOTYPECALLER.out.versions.first().ifEmpty(null))
 

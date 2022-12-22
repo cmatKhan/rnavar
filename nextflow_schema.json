@@ -267,6 +267,10 @@
                     "description": "The minimum phred-scaled confidence threshold at which variants should be called.",
                     "help_text": "Specify the minimum phred-scaled confidence threshold at which variants should be called.",
                     "hidden": false
+                },
+                "gvcf": {
+                    "type": "boolean",
+                    "description": "Set this"
                 }
             }
         },
@@ -640,11 +644,5 @@
         {
             "$ref": "#/definitions/generic_options"
         }
-    ],
-    "properties": {
-        "platform": {
-            "type": "string",
-            "default": "illumina"
-        }
-    }
+    ]
 }
